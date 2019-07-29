@@ -76,7 +76,7 @@ namespace Leaf.xNet.Services.Cloudflare
         /// <exception cref="CloudflareException">When unable to bypass Cloudflare</exception>
         /// <exception cref="CaptchaException">When unable to solve captcha using <see cref="ICaptchaSolver"/> provider.</exception>
         /// <returns>Returns original HttpResponse</returns>
-        public static HttpResponse GetThroughCloudflare(this HttpRequest request, Uri uri, 
+        private static HttpResponse GetThroughCloudflare(this HttpRequest request,HttpMethod httpMethod, Uri uri , string postData = null, string contentType = null,
             DLog log = null,
             CancellationToken cancellationToken = default(CancellationToken),
             ICaptchaSolver captchaSolver = null)
@@ -95,7 +95,23 @@ namespace Leaf.xNet.Services.Cloudflare
                 string retry = $". Retry {i + 1} / {MaxRetries}.";
                 log?.Invoke($"{LogPrefix}Trying to bypass{retry}");
 
-                var response = ManualGet(request, uri);
+                HttpResponse response;
+                switch(httpMethod)
+                {
+                    case HttpMethod.POST:
+                        response = ManualPost(request, uri, postData, contentType);
+                        break;
+                    case HttpMethod.GET:
+                        response = ManualGet(request, uri);
+                        break;
+                    default:
+                        response = ManualGet(request, uri);
+                        break;
+                }
+                    
+                
+                    
+
                 if (!response.IsCloudflared())
                 {
                     log?.Invoke($"{LogPrefix} OK. Not found at: {uri.AbsoluteUri}");
@@ -139,15 +155,33 @@ namespace Leaf.xNet.Services.Cloudflare
 
         /// <inheritdoc cref="GetThroughCloudflare(HttpRequest, string, DLog, CancellationToken, ICaptchaSolver)"/>
         /// <param name="url">URL address</param>
-        public static HttpResponse GetThroughCloudflare(this HttpRequest request, string url,
+        //public static HttpResponse GetThroughCloudflare(this HttpRequest request, string url,
+        //    DLog log = null,
+        //    CancellationToken cancellationToken = default(CancellationToken),
+        //    ICaptchaSolver captchaSolver = null)
+        //{
+        //    var uri = request.BaseAddress != null && url.StartsWith("/") ? new Uri(request.BaseAddress, url) : new Uri(url);
+        //    return GetThroughCloudflare(request, HttpMethod.GET,uri,null,null, log, cancellationToken, captchaSolver);
+        //}
+
+        //public static HttpResponse GetThroughCloudflare(this HttpRequest request, string url, string postData , string contentType,
+        //    DLog log = null,
+        //    CancellationToken cancellationToken = default(CancellationToken),
+        //    ICaptchaSolver captchaSolver = null)
+        //{
+        //    var uri = request.BaseAddress != null && url.StartsWith("/") ? new Uri(request.BaseAddress, url) : new Uri(url);
+        //    return GetThroughCloudflare(request, HttpMethod.POST, uri,postData , contentType, log, cancellationToken, captchaSolver);
+        //}
+
+
+        public static HttpResponse GetThroughCloudflare(this HttpRequest request, string url, HttpMethod httpMethod = HttpMethod.GET, string Data = null, string contentType = "application/x-www-form-urlencoded",
             DLog log = null,
             CancellationToken cancellationToken = default(CancellationToken),
             ICaptchaSolver captchaSolver = null)
         {
             var uri = request.BaseAddress != null && url.StartsWith("/") ? new Uri(request.BaseAddress, url) : new Uri(url);
-            return GetThroughCloudflare(request, uri, log, cancellationToken, captchaSolver);
+            return GetThroughCloudflare(request, httpMethod, uri, Data, contentType, log, cancellationToken, captchaSolver);
         }
-
         #endregion
 
         #region Private: Generic Challenge
@@ -313,7 +347,32 @@ namespace Leaf.xNet.Services.Cloudflare
 
             return response;
         }
+        private static HttpResponse ManualPost(this HttpRequest request, Uri uri,string postData,string contentType ,Uri refererUri = null, RequestParams requestParams = null)
+        {
+            request.ManualMode = true;
+            // Manual start
 
+            request.AddCloudflareHeaders(refererUri ?? uri);
+            HttpResponse response;
+            if(string.IsNullOrEmpty(postData) & contentType != "application/x-www-form-urlencoded")
+            {
+                var stringContent = new StringContent(string.Empty) { ContentType = contentType };
+                response = request.Raw(HttpMethod.POST, uri, stringContent);
+            }
+            else if(!string.IsNullOrEmpty(postData))
+            {
+                response = request.Post(uri, postData, contentType);
+            }
+            else
+            {
+                response = request.Post(uri);
+            }
+
+            // End manual mode
+            request.ManualMode = false;
+
+            return response;
+        }
         private static void AddCloudflareHeaders(this HttpRequest request, Uri refererUri)
         {
             request.AddHeader(HttpHeader.Referer, refererUri.AbsoluteUri);
