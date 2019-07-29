@@ -153,27 +153,18 @@ namespace Leaf.xNet.Services.Cloudflare
             throw new CloudflareException(MaxRetries, $"{LogPrefix}ERROR. Rate limit reached.");
         }
 
-        /// <inheritdoc cref="GetThroughCloudflare(HttpRequest, string, DLog, CancellationToken, ICaptchaSolver)"/>
+        /// <summary>
+        /// GET,POST request with bypassing Cloudflare JavaScript challenge.
+        /// </summary>
+        /// <param name="request"></param>
         /// <param name="url">URL address</param>
-        //public static HttpResponse GetThroughCloudflare(this HttpRequest request, string url,
-        //    DLog log = null,
-        //    CancellationToken cancellationToken = default(CancellationToken),
-        //    ICaptchaSolver captchaSolver = null)
-        //{
-        //    var uri = request.BaseAddress != null && url.StartsWith("/") ? new Uri(request.BaseAddress, url) : new Uri(url);
-        //    return GetThroughCloudflare(request, HttpMethod.GET,uri,null,null, log, cancellationToken, captchaSolver);
-        //}
-
-        //public static HttpResponse GetThroughCloudflare(this HttpRequest request, string url, string postData , string contentType,
-        //    DLog log = null,
-        //    CancellationToken cancellationToken = default(CancellationToken),
-        //    ICaptchaSolver captchaSolver = null)
-        //{
-        //    var uri = request.BaseAddress != null && url.StartsWith("/") ? new Uri(request.BaseAddress, url) : new Uri(url);
-        //    return GetThroughCloudflare(request, HttpMethod.POST, uri,postData , contentType, log, cancellationToken, captchaSolver);
-        //}
-
-
+        /// <param name="httpMethod">Available now: Get(default),Post</param>
+        /// <param name="Data">RequestContent in raw</param>
+        /// <param name="contentType">Content-Type</param>
+        /// <param name="log">Log action</param>
+        /// <param name="cancellationToken">Cancel protection</param>
+        /// <param name="captchaSolver">Captcha solving provider when Recaptcha required for pass</param>
+        /// <returns></returns>
         public static HttpResponse GetThroughCloudflare(this HttpRequest request, string url, HttpMethod httpMethod = HttpMethod.GET, string Data = null, string contentType = "application/x-www-form-urlencoded",
             DLog log = null,
             CancellationToken cancellationToken = default(CancellationToken),
@@ -185,9 +176,10 @@ namespace Leaf.xNet.Services.Cloudflare
         #endregion
 
         #region Private: Generic Challenge
-
+        
         private static bool IsChallengePassed(string tag, ref HttpResponse response, HttpRequest request, Uri uri, string retry, DLog log)
         {
+
             // ReSharper disable once SwitchStatementMissingSomeCases
             switch (response.StatusCode) {
                 case HttpStatusCode.ServiceUnavailable:
